@@ -7,13 +7,11 @@
 #include "SDL_ttf.h"
 #include "SDL_image.h"
 
-#define PI 3.14159265
-#define RADIUS 10
+#include "vec2.h"
 
-typedef struct {
-    float x;
-    float y;
-} v2;
+#define PI 3.14159265
+#define BALL_RADIUS 10
+#define PEG_RADIUS 20
 
 typedef struct {
     int x;
@@ -21,8 +19,9 @@ typedef struct {
 } Position;
 
 typedef struct {
-    v2 position;
-    v2 velocity;
+    vec2 position;
+    vec2 velocity;
+    float radius;
 } Ball;
 
 typedef enum {
@@ -32,8 +31,10 @@ typedef enum {
 } Peg_Type;
 
 typedef struct {
-    v2 position;
+    vec2 position;
     Peg_Type type;
+    bool hit;
+    float radius;
 } Peg;
 
 typedef struct {
@@ -41,6 +42,7 @@ typedef struct {
     int y;
 } Window;
 
+// TODO(bkaylor): Multiple pegs (more important), multiple balls (less important)
 typedef struct {
     Ball ball;
     Peg peg;
@@ -48,8 +50,10 @@ typedef struct {
     bool quit;
     bool reset;
     Window window;
+    bool shoot_ball;
 } Game_State;
 
+// TODO(bkaylor): This is stolened.
 void draw_circle(SDL_Renderer *renderer, int32_t centreX, int32_t centreY, int32_t radius)
 {
    const int32_t diameter = (radius * 2);
@@ -96,49 +100,87 @@ void render(SDL_Renderer *renderer, Game_State game_state)
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     SDL_RenderFillRect(renderer, NULL);
 
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 0);
 
     Ball ball = game_state.ball;
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 0);
+    draw_circle(renderer, ball.position.x, ball.position.y, ball.radius);
+
     Peg peg = game_state.peg;
-    draw_circle(renderer, ball.position.x, ball.position.y, RADIUS);
-    draw_circle(renderer, peg.position.x, peg.position.y, RADIUS);
+    if (peg.hit) SDL_SetRenderDrawColor(renderer, 255, 0, 0, 0);
+    draw_circle(renderer, peg.position.x, peg.position.y, peg.radius);
 
     SDL_RenderPresent(renderer);
 }
 
 void update(Game_State *game_state, float dt) 
 {
+    Position initial_position;
+    initial_position.x = game_state->window.x/2; 
+    initial_position.y = game_state->window.y-10;
     if (game_state->reset)
     {
-        Position initial_position;
-        initial_position.x = game_state->window.x - 10; 
-        initial_position.x = game_state->window.y/2;
+        Ball *ball = &game_state->ball;
+        ball->position.x = initial_position.x + 10;
+        ball->position.y = initial_position.y; 
+        ball->velocity.x = 0.0f;
+        ball->velocity.y = -200.0f;
+        ball->radius = BALL_RADIUS;
 
-        Ball ball;
-        ball.position.x = initial_position.x;
-        ball.position.y = initial_position.y; 
-        ball.velocity.x = 0.0f;
-        ball.velocity.y = -200.0f;
-
-        game_state->ball = ball;
-
-        Peg peg;
-        peg.position.x = initial_position.x;
-        peg.position.y = initial_position.y - (game_state->window.y/2);
-
-        game_state->peg = peg;
+        Peg *peg = &game_state->peg;
+        peg->position.x = initial_position.x;
+        peg->position.y = initial_position.y - (game_state->window.y/2);
+        peg->hit = false;
+        peg->radius = PEG_RADIUS;
 
         game_state->reset = false;
+
+        game_state->balls_available = 3;
+    }
+
+    if (game_state->shoot_ball && game_state->balls_available > 0) 
+    {
+        Ball *ball = &game_state->ball;
+        ball->position.x = initial_position.x + 10;
+        ball->position.y = initial_position.y; 
+        ball->velocity.x = 0.0f;
+        ball->velocity.y = -200.0f;
+        ball->radius = BALL_RADIUS;
+
+        game_state->shoot_ball = false;
+
+        game_state->balls_available -= 1;
     }
 
     Ball *ball = &game_state->ball;
     ball->position.x += ball->velocity.x * dt;
     ball->position.y += ball->velocity.y * dt;
 
+    Peg *peg = &game_state->peg;
+
+    // Check for collision.
+    float dx = (ball->position.x - peg->position.x); 
+    float dy = (ball->position.y - peg->position.y);
+    float distance_between_ball_and_peg = sqrt((dx*dx) + (dy*dy));
+    if (distance_between_ball_and_peg < ball->radius + peg->radius) 
+    {
+        printf("Collided!\n"); 
+        peg->hit = true;
+
+        float collision_point_x = ((ball->position.x * peg->radius) + (peg->position.x * ball->radius)) / (ball->radius + peg->radius);
+        float collision_point_y = ((ball->position.y * peg->radius) + (peg->position.y * ball->radius)) / (ball->radius + peg->radius);
+
+        vec2 normal = vec2_normalize((vec2){peg->position.x - collision_point_x, peg->position.y - collision_point_y});
+        vec2 incidence_vector = ball->velocity;
+
+        // Rr = Ri - 2 N (Ri . N)
+        ball->velocity = vec2_subtract(incidence_vector, vec2_scalar_multiply(vec2_scalar_multiply(normal, 2), vec2_dot_product(incidence_vector, normal)));
+    }
+
     // Gravity.
     ball->velocity.y += (80.0f * dt);
 }
 
+// TODO(bkaylor): Mouse input.
 void get_input(Game_State *game_state, SDL_Renderer *ren)
 {
     // Handle events.
@@ -157,6 +199,10 @@ void get_input(Game_State *game_state, SDL_Renderer *ren)
 
                     case SDLK_r:
                         game_state->reset = true;
+                        break;
+
+                    case SDLK_s:
+                        game_state->shoot_ball = true;
                         break;
 
                     default:
