@@ -284,7 +284,7 @@ void render(SDL_Renderer *renderer, Game_State game_state, TTF_Font *font, SDL_C
                     } break;
 
                     case LOSE_MESSAGE: {
-                        sprintf(gameplay_message, "You lost. R to restart!");
+                        sprintf(gameplay_message, "R to restart");
                     } break;
 
                     default: {
@@ -301,20 +301,20 @@ void render(SDL_Renderer *renderer, Game_State game_state, TTF_Font *font, SDL_C
             sprintf(title_message, "PEGGLE");
 
             char start_message[50];
-            sprintf(start_message, "Click to play!");
+            sprintf(start_message, "Click to play");
 
-            draw_text(renderer, game_state.window.x/2 - 50, game_state.window.y/2 - 50, title_message, font, font_color);
-            draw_text(renderer, game_state.window.x/2 - 50, game_state.window.y/2 + 50, start_message, font, font_color);
+            draw_text(renderer, game_state.window.x/2 - 50, game_state.window.y/2 - 100, title_message, font, font_color);
+            draw_text(renderer, game_state.window.x/2 - 50, game_state.window.y/2, start_message, font, font_color);
         break;
         case WIN_SCREEN:
             char win_title_message[50];
             sprintf(title_message, "WIN");
 
             char win_start_message[50];
-            sprintf(start_message, "Click to play again!");
+            sprintf(start_message, "Click to play again");
 
-            draw_text(renderer, game_state.window.x/2 - 50, game_state.window.y/2 - 50, title_message, font, font_color);
-            draw_text(renderer, game_state.window.x/2 - 50, game_state.window.y/2 + 50, start_message, font, font_color);
+            draw_text(renderer, game_state.window.x/2 - 50, game_state.window.y/2 - 100, title_message, font, font_color);
+            draw_text(renderer, game_state.window.x/2 - 50, game_state.window.y/2, start_message, font, font_color);
         break;
     }
 
@@ -400,21 +400,32 @@ void update(Game_State *game_state, float dt)
 
         game_state->reset = false;
         game_state->shoot_ball = false;
-        game_state->balls_available = 8;
+        game_state->balls_available = 3;
         game_state->net_available = true;
         game_state->message = NONE_MESSAGE;
 
         for (int i = 0; i < 50; i += 1)
         {
+            /*
             vec2 position = {
                 initial_position.x + (rand() % 400) - 200,
-                initial_position.y + (rand() % 600) - 800
+                initial_position.y + (rand() % 600) - 800 
+            };
+            */
+
+            float side_margin =     0.05f;
+            float top_margin =      0.05f;
+            float bottom_margin =   0.30f;
+
+            vec2 position = {
+                rand() % (int)(game_state->window.x - 2 * (game_state->window.x * side_margin)) + (game_state->window.x * side_margin),
+                rand() % (int)(game_state->window.y - ((game_state->window.y * bottom_margin) + (game_state->window.y * top_margin))) + (game_state->window.y * top_margin)
             };
 
             Peg_Type type;
-            if (i < 30) {
+            if (i < 35) {
                 type = NORMAL_PEG;
-            } else if (i < 40) {
+            } else if (i < 45) {
                 type = REQUIRED_PEG;
             } else if (i < 50) {
                 type = SPECIAL_PEG;
@@ -441,7 +452,7 @@ void update(Game_State *game_state, float dt)
         game_state->launcher.animation.type = ANIMATION_NONE; 
     }
 
-    if (game_state->balls_available == 0) dt /= 3;
+    if (game_state->balls_available == 0 && (game_state->score == game_state->required_peg_count - 1)) dt /= 3;
 
     game_state->timer += dt;
 
