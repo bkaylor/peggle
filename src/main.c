@@ -455,6 +455,7 @@ void update(Game_State *game_state, float dt)
     if (launcher->position.x + launcher->radius >= game_state->window.x ||
         launcher->position.x - launcher->radius <= 0) {
         launcher->velocity = vec2_scalar_multiply(launcher->velocity, -1.0f);
+        launcher->position = vec2_add(launcher->position, vec2_scalar_multiply(launcher->velocity, 0.05f)); // Bump the launcher position so it doesn't get stuck in the wall.
     }
 
     if (!game_state->net_available) {
