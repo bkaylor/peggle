@@ -136,7 +136,7 @@ typedef struct {
 } Game_State;
 
 void draw_text(SDL_Renderer *renderer, int x, int y, char *string, TTF_Font *font, SDL_Color font_color) {
-    SDL_Surface *surface = TTF_RenderText_Solid(font, string, font_color);
+    SDL_Surface *surface = TTF_RenderText_Blended(font, string, font_color);
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
     int x_from_texture, y_from_texture;
     SDL_QueryTexture(texture, NULL, NULL, &x_from_texture, &y_from_texture);
@@ -452,7 +452,7 @@ void update(Game_State *game_state, float dt)
         game_state->launcher.animation.type = ANIMATION_NONE; 
     }
 
-    if (game_state->balls_available == 0 && (game_state->score == game_state->required_peg_count - 1)) dt /= 3;
+    // if (game_state->balls_available == 0 && (game_state->score == game_state->required_peg_count - 1)) dt /= 3;
 
     game_state->timer += dt;
 
@@ -550,13 +550,13 @@ void update(Game_State *game_state, float dt)
                     switch (peg->special) {
                         case EXTRA_BALL_SPECIAL:
                             game_state->balls_available += 1;
-                            show_message(game_state, EXTRA_BALL_MESSAGE);
+                            // show_message(game_state, EXTRA_BALL_MESSAGE);
                         break;
                         case RANDOM_CLEAR_SPECIAL:
                             for (int i = 0; i < game_state->peg_count; i += 1) {
                                 if (game_state->pegs[i].type == REQUIRED_PEG && !game_state->pegs[i].hit) {
                                     set_peg_to_hit(&game_state->pegs[i]);
-                                    show_message(game_state, FREE_PEG_MESSAGE);
+                                    // show_message(game_state, FREE_PEG_MESSAGE);
                                     break;
                                 }
 
@@ -566,7 +566,7 @@ void update(Game_State *game_state, float dt)
                             game_state->ball[game_state->ball_count] = make_ball(ball->position, vec2_scalar_multiply(ball->velocity, 0.8f));
                             game_state->ball_count += 1;
 
-                            show_message(game_state, DUPLICATE_BALL_MESSAGE);
+                            // show_message(game_state, DUPLICATE_BALL_MESSAGE);
                         case NONE_SPECIAL:
                         default:
                         break;
@@ -719,7 +719,7 @@ void update(Game_State *game_state, float dt)
 
         if (game_state->net_cooldown <= 0) {
             game_state->net_available = true;
-            show_message(game_state, NET_AVAILABLE_MESSAGE);
+            // show_message(game_state, NET_AVAILABLE_MESSAGE);
         }
     }
     
