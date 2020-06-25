@@ -9,6 +9,8 @@
 
 #include "vec2.h"
 
+#include "audio.h"
+
 #define MAX_PEGS 128
 #define PI 3.14159265
 #define BALL_RADIUS 9
@@ -120,11 +122,13 @@ typedef struct {
     float net_cooldown_max;
 
     bool quit;
+    bool lost;
     bool reset;
     Window window;
     vec2 mouse_vector;
     float timer;
     Screen screen;
+    Audio audio;
 
     int score;
     int required_peg_count;
@@ -392,8 +396,12 @@ void update(Game_State *game_state, float dt)
     initial_position.x = game_state->window.x/2; 
     initial_position.y = game_state->window.y-10;
 
+    Audio *audio = &game_state->audio;
+
     if (game_state->reset)
     {
+        play_sound(audio, GAME_START);
+
         game_state->peg_count = 0;
         game_state->ball_count = 0;
         game_state->net_count = 0;
@@ -403,6 +411,7 @@ void update(Game_State *game_state, float dt)
         game_state->balls_available = 3;
         game_state->net_available = true;
         game_state->message = NONE_MESSAGE;
+        game_state->lost = false;
 
         for (int i = 0; i < 50; i += 1)
         {
@@ -478,6 +487,8 @@ void update(Game_State *game_state, float dt)
     //
     if (game_state->shoot_ball && game_state->balls_available > 0) 
     {
+        play_sound(audio, BALL_SHOT);
+
         Ball *ball = &game_state->ball[game_state->ball_count];
 
         game_state->ball[game_state->ball_count] = make_ball(vec2_subtract(game_state->launcher.position, vec2_scalar_multiply(vec2_normalize(game_state->mouse_vector), game_state->launcher.radius + 10.0f)), vec2_scalar_multiply(game_state->mouse_vector, -465.0f));
@@ -491,6 +502,8 @@ void update(Game_State *game_state, float dt)
     // Shoot net
     if (game_state->shoot_net && game_state->net_available)
     {
+        play_sound(audio, NET_SHOT);
+
         Net *net = &game_state->nets[game_state->net_count];
         net->position = game_state->launcher.position;
         net->velocity = vec2_scalar_multiply(game_state->mouse_vector, -1000.0f);
@@ -526,6 +539,7 @@ void update(Game_State *game_state, float dt)
             float distance_between_ball_and_peg = sqrt((dx*dx) + (dy*dy));
             if (distance_between_ball_and_peg < ball->radius + peg->radius) 
             {
+                play_sound(audio, BALL_HIT);
                 set_peg_to_hit(peg);
 
                 float collision_point_x = ((ball->position.x * peg->radius) + (peg->position.x * ball->radius)) / (ball->radius + peg->radius);
@@ -578,8 +592,16 @@ void update(Game_State *game_state, float dt)
         }
 
         // Check for wall collisions
-        if ((ball->position.x + ball->radius) > game_state->window.x || (ball->position.x - ball->radius) < 0) ball->velocity.x *= -1;
-        if ((ball->position.y - ball->radius) < 0) ball->velocity.y *= -1;
+        if ((ball->position.x + ball->radius) > game_state->window.x || (ball->position.x - ball->radius) < 0) 
+        {
+            ball->velocity.x *= -1;
+            play_sound(audio, BALL_HIT);
+        }
+        if ((ball->position.y - ball->radius) < 0) 
+        {
+            ball->velocity.y *= -1;
+            play_sound(audio, BALL_HIT);
+        }
 
         // Check for launcher collisions
         float dx = (ball->position.x - launcher->position.x); 
@@ -587,6 +609,8 @@ void update(Game_State *game_state, float dt)
         float distance_between_ball_and_launcher = sqrt((dx*dx) + (dy*dy));
         if (distance_between_ball_and_launcher < ball->radius + launcher->radius) 
         {
+            play_sound(audio, BALL_HIT);
+
             float collision_point_x = ((ball->position.x * launcher->radius) + (launcher->position.x * ball->radius)) / (ball->radius + launcher->radius);
             float collision_point_y = ((ball->position.y * launcher->radius) + (launcher->position.y * ball->radius)) / (ball->radius + launcher->radius);
 
@@ -607,7 +631,11 @@ void update(Game_State *game_state, float dt)
         // Gravity.
         ball->velocity.y += (140.0f * dt);
 
-        if ((ball->position.y - ball->radius) > game_state->window.y) ball->out_of_play = true;
+        if ((ball->position.y - ball->radius) > game_state->window.y) 
+        {
+            ball->out_of_play = true;
+            play_sound(audio, BALL_LOST);
+        }
 
         // Update ball animations
         if (ball->animation.type != ANIMATION_NONE) {
@@ -646,6 +674,7 @@ void update(Game_State *game_state, float dt)
                         game_state->score += 1;
 
                         if (game_state->score == game_state->required_peg_count) {
+                            play_sound(audio, GAME_WON);
                             game_state->screen = WIN_SCREEN;
                         }
                     }
@@ -675,6 +704,7 @@ void update(Game_State *game_state, float dt)
             {
                 // Set the ball hit state
                 if (ball->animation.type == ANIMATION_NONE) {
+                    play_sound(audio, NET_HIT);
                     ball->animation.type = ANIMATION_SHRINKING;
                     ball->animation.total_time = ANIMATION_BALL_SHRINKING_TIME;
                     ball->animation.time_left = ball->animation.total_time;
@@ -736,6 +766,12 @@ void update(Game_State *game_state, float dt)
 
         if (balls_in_play == 0) {
             show_message(game_state, LOSE_MESSAGE);
+
+            if (!game_state->lost)
+            {
+                play_sound(audio, GAME_LOST);
+            }
+            game_state->lost = true;
         }
     }
 }
@@ -887,6 +923,7 @@ int main(int argc, char *argv[])
 
     Game_State game_state = {0};
     game_state.reset = 1;
+    init_and_load_sounds(&game_state.audio);
 
     // Main loop
     const float FPS_INTERVAL = 1.0f;

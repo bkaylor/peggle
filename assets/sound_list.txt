@@ -1,0 +1,18 @@
+Game start
+
+Ball shot
+
+Ball hit blue peg
+Ball hit orange peg
+Ball hit green peg
+Ball hit wall
+Ball hit paddle
+
+Net shot
+Net hit ball
+Net broke
+
+Ball lost
+
+Game lost
+Game win
